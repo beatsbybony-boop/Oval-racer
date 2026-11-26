@@ -1,0 +1,35 @@
+name: Build
+
+# Builds the PS2 ELF in the official ps2dev toolchain image and runs the
+# host-side game tests. Runs on every push, and can be started by hand from
+# the Actions tab ("Run workflow").
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core-tests:
+    name: Game logic tests (gcc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
+
+  ps2-elf:
+    name: Build oval-racer.elf (ps2dev)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Run the toolchain image directly rather than as a job container: the
+      # image is Alpine-based and the artifact upload step needs the host.
+      - name: Compile
+        run: |
+          docker run --rm -v "$PWD":/src -w /src ps2dev/ps2dev:latest \
+            sh -c "apk add --no-cache make >/dev/null 2>&1 || true; make clean; make"
+          ls -l oval-racer.elf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oval-racer-elf
+          path: oval-racer.elf
+          if-no-files-found: error
